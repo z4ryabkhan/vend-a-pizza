@@ -6,7 +6,9 @@ import VerdictView from "@/components/VerdictView";
 import SeatCard from "@/components/SeatCard";
 import { getCouncilSession } from "@/lib/db";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { createServerSupabase } from "@/lib/supabase/server";
 import { councilTypeLabel } from "@/lib/council";
+import ExportVerdictButton from "@/components/ExportVerdictButton";
 
 export const metadata: Metadata = {
   title: "Council Result — FounderCouncil AI",
@@ -19,7 +21,7 @@ export default async function ResultsPage({
 }: {
   params: { id: string };
 }) {
-  if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!isSupabaseConfigured()) {
     return (
       <SiteShell>
         <div className="mx-auto max-w-3xl px-4 py-16 text-center sm:px-6">
@@ -41,7 +43,7 @@ export default async function ResultsPage({
     );
   }
 
-  const session = await getCouncilSession(params.id);
+  const session = await getCouncilSession(createServerSupabase(), params.id);
   if (!session) notFound();
 
   return (
@@ -54,14 +56,17 @@ export default async function ResultsPage({
           ← Back to history
         </Link>
 
-        <header className="mb-8 mt-4">
-          <p className="text-xs uppercase tracking-wide text-slate-500">
-            {councilTypeLabel(session.council_type)} ·{" "}
-            {new Date(session.created_at).toLocaleString()}
-          </p>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">
-            {session.question}
-          </h1>
+        <header className="mb-8 mt-4 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-500">
+              {councilTypeLabel(session.council_type)} ·{" "}
+              {new Date(session.created_at).toLocaleString()}
+            </p>
+            <h1 className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">
+              {session.question}
+            </h1>
+          </div>
+          <ExportVerdictButton session={session} />
         </header>
 
         <VerdictView verdict={session.chairman_response} />

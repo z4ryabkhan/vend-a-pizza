@@ -3,9 +3,17 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { COUNCIL_TYPES } from "@/lib/council";
-import type { CouncilRunResult, CouncilType } from "@/lib/types";
+import { readNdjsonStream } from "@/lib/ndjson";
+import type {
+  ChairmanVerdict,
+  CouncilStreamEvent,
+  CouncilType,
+  SeatId,
+  SeatResponse,
+} from "@/lib/types";
 import VerdictView from "./VerdictView";
 import SeatCard from "./SeatCard";
+import SeatSkeleton from "./SeatSkeleton";
 
 const EXAMPLES = [
   "Should we pivot our B2B SaaS to a self-serve PLG model next quarter?",
@@ -13,65 +21,115 @@ const EXAMPLES = [
   "Should we build our own payments infrastructure or integrate Stripe?",
 ];
 
+const SEAT_ORDER: SeatId[] = ["strategist", "risk", "researcher", "builder"];
+
+type Stage = "idle" | "advisors" | "chairman" | "done";
+
 export default function CouncilForm() {
   const router = useRouter();
   const [question, setQuestion] = useState("");
   const [councilType, setCouncilType] = useState<CouncilType>("startup");
-  const [loading, setLoading] = useState(false);
+  const [stage, setStage] = useState<Stage>("idle");
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<CouncilRunResult | null>(null);
+
+  const [seats, setSeats] = useState<Record<string, SeatResponse>>({});
+  const [verdict, setVerdict] = useState<ChairmanVerdict | null>(null);
+  const [savedId, setSavedId] = useState<string | null>(null);
+  const [persisted, setPersisted] = useState(false);
+  const [submittedQuestion, setSubmittedQuestion] = useState("");
+
+  const loading = stage === "advisors" || stage === "chairman";
+
+  function reset() {
+    setStage("idle");
+    setError(null);
+    setSeats({});
+    setVerdict(null);
+    setSavedId(null);
+    setPersisted(false);
+    setQuestion("");
+    setSubmittedQuestion("");
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!question.trim() || loading) return;
+    const trimmed = question.trim();
+    if (!trimmed || loading) return;
 
-    setLoading(true);
     setError(null);
-    setResult(null);
+    setSeats({});
+    setVerdict(null);
+    setSavedId(null);
+    setPersisted(false);
+    setSubmittedQuestion(trimmed);
+    setStage("advisors");
 
     try {
       const res = await fetch("/api/council", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: question.trim(), councilType }),
+        body: JSON.stringify({ question: trimmed, councilType }),
       });
-      const data = await res.json();
-      if (!res.ok) {
+
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "The council could not be convened.");
       }
-      setResult(data as CouncilRunResult);
+
+      for await (const event of readNdjsonStream<CouncilStreamEvent>(res)) {
+        switch (event.type) {
+          case "status":
+            setStage(event.stage);
+            break;
+          case "seat":
+            setSeats((prev) => ({ ...prev, [event.data.seat]: event.data }));
+            break;
+          case "verdict":
+            setVerdict(event.data);
+            break;
+          case "saved":
+            setSavedId(event.id);
+            setPersisted(event.persisted);
+            setStage("done");
+            break;
+          case "error":
+            setError(event.error);
+            break;
+        }
+      }
+      setStage((s) => (s === "done" ? s : "done"));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
-    } finally {
-      setLoading(false);
+      setStage("idle");
     }
   }
 
-  // ---- Results view ----
-  if (result) {
-    const persisted = result.id !== "ephemeral";
+  const showResults = stage !== "idle";
+
+  if (showResults) {
     return (
       <div className="space-y-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-xl font-semibold text-white">Council results</h2>
+          <h2 className="text-xl font-semibold text-white">
+            {stage === "done" ? "Council results" : "Council in session…"}
+          </h2>
           <div className="flex gap-2">
-            {persisted && (
+            {stage === "done" && persisted && savedId && (
               <button
-                onClick={() => router.push(`/results/${result.id}`)}
+                onClick={() => router.push(`/results/${savedId}`)}
                 className="rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/10"
               >
                 Open permalink
               </button>
             )}
-            <button
-              onClick={() => {
-                setResult(null);
-                setQuestion("");
-              }}
-              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-500"
-            >
-              Ask another
-            </button>
+            {stage === "done" && (
+              <button
+                onClick={reset}
+                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-500"
+              >
+                Ask another
+              </button>
+            )}
           </div>
         </div>
 
@@ -79,23 +137,49 @@ export default function CouncilForm() {
           <p className="text-xs uppercase tracking-wide text-slate-500">
             Your question
           </p>
-          <p className="mt-1 text-slate-200">{result.question}</p>
+          <p className="mt-1 text-slate-200">{submittedQuestion}</p>
         </div>
 
-        <VerdictView verdict={result.verdict} />
+        {error && (
+          <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+            {error}
+          </p>
+        )}
 
+        {/* Advisors stream in first */}
         <div>
-          <h3 className="mb-4 text-lg font-semibold text-white">
-            Advisor responses
-          </h3>
+          <div className="mb-4 flex items-center gap-3">
+            <h3 className="text-lg font-semibold text-white">
+              Advisor responses
+            </h3>
+            {stage === "advisors" && (
+              <span className="text-sm text-slate-400">
+                consulting the council…
+              </span>
+            )}
+          </div>
           <div className="grid gap-5 lg:grid-cols-2">
-            {result.seatResponses.map((r) => (
-              <SeatCard key={r.seat} response={r} />
-            ))}
+            {SEAT_ORDER.map((id) =>
+              seats[id] ? (
+                <SeatCard key={id} response={seats[id]} />
+              ) : (
+                <SeatSkeleton key={id} seat={id} />
+              )
+            )}
           </div>
         </div>
 
-        {!persisted && (
+        {/* Chairman verdict */}
+        {verdict ? (
+          <VerdictView verdict={verdict} />
+        ) : stage === "chairman" ? (
+          <div className="flex items-center gap-3 rounded-2xl border border-brand-500/30 bg-brand-600/10 px-5 py-6 text-slate-200">
+            <span className="h-5 w-5 animate-spin rounded-full border-2 border-brand-400/40 border-t-brand-300" />
+            The Chairman is synthesizing the final verdict…
+          </div>
+        ) : null}
+
+        {stage === "done" && verdict && !persisted && (
           <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
             Supabase isn&apos;t configured, so this result was not saved. Add your
             Supabase keys to enable history.
@@ -123,7 +207,6 @@ export default function CouncilForm() {
           maxLength={4000}
           placeholder="e.g. Should we expand into the EU market before reaching profitability?"
           className="w-full resize-y rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
-          disabled={loading}
         />
         <div className="mt-2 flex flex-wrap gap-2">
           {EXAMPLES.map((ex) => (
@@ -131,8 +214,7 @@ export default function CouncilForm() {
               key={ex}
               type="button"
               onClick={() => setQuestion(ex)}
-              disabled={loading}
-              className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-400 transition hover:border-brand-500/40 hover:text-slate-200 disabled:opacity-50"
+              className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-400 transition hover:border-brand-500/40 hover:text-slate-200"
             >
               {ex}
             </button>
@@ -152,7 +234,6 @@ export default function CouncilForm() {
                 key={type.value}
                 type="button"
                 onClick={() => setCouncilType(type.value)}
-                disabled={loading}
                 className={`rounded-xl border p-4 text-left transition ${
                   active
                     ? "border-brand-500 bg-brand-600/15"
@@ -177,24 +258,13 @@ export default function CouncilForm() {
         </p>
       )}
 
-      <div className="flex items-center gap-4">
-        <button
-          type="submit"
-          disabled={loading || !question.trim()}
-          className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-6 py-3 text-base font-semibold text-white transition hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {loading && (
-            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-          )}
-          {loading ? "Council in session…" : "Convene the council"}
-        </button>
-        {loading && (
-          <span className="text-sm text-slate-400">
-            Consulting four advisors and the Chairman — this can take up to a
-            minute.
-          </span>
-        )}
-      </div>
+      <button
+        type="submit"
+        disabled={!question.trim()}
+        className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-6 py-3 text-base font-semibold text-white transition hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        Convene the council
+      </button>
     </form>
   );
 }

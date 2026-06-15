@@ -1,4 +1,5 @@
 import Link from "next/link";
+import UserMenu from "./UserMenu";
 
 const links = [
   { href: "/dashboard", label: "Dashboard" },
@@ -35,6 +36,8 @@ export default function Navbar() {
           >
             Convene
           </Link>
+          <span className="mx-1 hidden h-5 w-px bg-white/10 sm:inline-block" />
+          <UserMenu />
         </div>
       </nav>
     </header>

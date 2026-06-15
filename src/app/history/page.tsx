@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import SiteShell from "@/components/SiteShell";
-import DecisionBadge from "@/components/DecisionBadge";
 import { listCouncilSessions } from "@/lib/db";
 import { isSupabaseConfigured } from "@/lib/supabase";
-import { councilTypeLabel } from "@/lib/council";
+import { createServerSupabase } from "@/lib/supabase/server";
+import HistoryItem from "@/components/HistoryItem";
 import type { CouncilSession } from "@/lib/types";
 
 export const metadata: Metadata = {
@@ -16,12 +16,11 @@ export const dynamic = "force-dynamic";
 export default async function HistoryPage() {
   let sessions: CouncilSession[] = [];
   let loadError: string | null = null;
-  const configured =
-    isSupabaseConfigured() && Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const configured = isSupabaseConfigured();
 
   if (configured) {
     try {
-      sessions = await listCouncilSessions(100);
+      sessions = await listCouncilSessions(createServerSupabase(), 100);
     } catch (err) {
       loadError = err instanceof Error ? err.message : "Failed to load history.";
     }
@@ -66,28 +65,7 @@ export default async function HistoryPage() {
         ) : (
           <ul className="space-y-3">
             {sessions.map((s) => (
-              <li key={s.id}>
-                <Link
-                  href={`/results/${s.id}`}
-                  className="block rounded-xl border border-white/10 bg-white/5 px-5 py-4 transition hover:border-brand-500/40 hover:bg-white/[0.07]"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-slate-100">{s.question}</p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        {councilTypeLabel(s.council_type)} ·{" "}
-                        {new Date(s.created_at).toLocaleString()} · Confidence{" "}
-                        {s.chairman_response?.confidenceScore ?? "—"}/100
-                      </p>
-                    </div>
-                    {s.chairman_response?.finalDecision && (
-                      <DecisionBadge
-                        decision={s.chairman_response.finalDecision}
-                      />
-                    )}
-                  </div>
-                </Link>
-              </li>
+              <HistoryItem key={s.id} session={s} />
             ))}
           </ul>
         )}

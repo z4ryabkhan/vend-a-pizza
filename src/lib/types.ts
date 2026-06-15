@@ -57,3 +57,14 @@ export interface CouncilRunResult {
   verdict: ChairmanVerdict;
   createdAt: string;
 }
+
+/**
+ * Newline-delimited JSON events streamed from POST /api/council. The client
+ * renders advisors as they land, then the verdict, then the saved id.
+ */
+export type CouncilStreamEvent =
+  | { type: "status"; stage: "advisors" | "chairman" }
+  | { type: "seat"; data: SeatResponse }
+  | { type: "verdict"; data: ChairmanVerdict }
+  | { type: "saved"; id: string; createdAt: string; persisted: boolean }
+  | { type: "error"; error: string };

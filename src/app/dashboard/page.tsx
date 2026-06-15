@@ -4,6 +4,7 @@ import SiteShell from "@/components/SiteShell";
 import DecisionBadge from "@/components/DecisionBadge";
 import { listCouncilSessions } from "@/lib/db";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { createServerSupabase } from "@/lib/supabase/server";
 import { councilTypeLabel } from "@/lib/council";
 import type { CouncilSession, FinalDecision } from "@/lib/types";
 
@@ -26,9 +27,9 @@ export default async function DashboardPage() {
   let sessions: CouncilSession[] = [];
   let loadError: string | null = null;
 
-  if (isSupabaseConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (isSupabaseConfigured()) {
     try {
-      sessions = await listCouncilSessions(100);
+      sessions = await listCouncilSessions(createServerSupabase(), 100);
     } catch (err) {
       loadError = err instanceof Error ? err.message : "Failed to load data.";
     }

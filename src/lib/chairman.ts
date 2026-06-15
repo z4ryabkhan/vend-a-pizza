@@ -58,8 +58,8 @@ function buildChairmanUser(
 
 const VALID_DECISIONS: FinalDecision[] = ["Proceed", "Pause", "Reject"];
 
-/** Pulls the first balanced JSON object out of a string. */
-function extractJson(text: string): string {
+/** Pulls the first balanced JSON object out of a string. Exported for tests. */
+export function extractJson(text: string): string {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const candidate = fenced ? fenced[1] : text;
   const start = candidate.indexOf("{");
@@ -72,13 +72,18 @@ function extractJson(text: string): string {
 
 function asStringArray(value: unknown): string[] {
   if (Array.isArray(value)) {
-    return value.map((v) => (typeof v === "string" ? v : String(v))).filter(Boolean);
+    return value
+      .filter((v) => v !== null && v !== undefined)
+      .map((v) => (typeof v === "string" ? v : String(v)))
+      .filter((v) => v.trim().length > 0);
   }
   if (typeof value === "string" && value.trim()) return [value.trim()];
   return [];
 }
 
-function normalizeVerdict(raw: Record<string, unknown>): ChairmanVerdict {
+export function normalizeVerdict(
+  raw: Record<string, unknown>
+): ChairmanVerdict {
   let score = Number(raw.confidenceScore);
   if (!Number.isFinite(score)) score = 50;
   score = Math.max(0, Math.min(100, Math.round(score)));
@@ -106,6 +111,15 @@ function normalizeVerdict(raw: Record<string, unknown>): ChairmanVerdict {
   };
 }
 
+/**
+ * Parses raw Chairman model output into a structured, validated verdict.
+ * Pure and side-effect free so it can be unit tested directly.
+ */
+export function parseChairmanVerdict(content: string): ChairmanVerdict {
+  const parsed = JSON.parse(extractJson(content)) as Record<string, unknown>;
+  return normalizeVerdict(parsed);
+}
+
 /** Runs the Chairman synthesis step and returns a structured verdict. */
 export async function runChairman(
   question: string,
@@ -128,6 +142,5 @@ export async function runChairman(
     ],
   });
 
-  const parsed = JSON.parse(extractJson(content)) as Record<string, unknown>;
-  return normalizeVerdict(parsed);
+  return parseChairmanVerdict(content);
 }
