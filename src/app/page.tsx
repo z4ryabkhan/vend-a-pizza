@@ -53,10 +53,10 @@ export default function LandingPage() {
               Convene your council
             </Link>
             <Link
-              href="/dashboard"
+              href="/pricing"
               className="rounded-xl border border-white/15 bg-white/5 px-6 py-3 text-base font-semibold text-white transition hover:bg-white/10"
             >
-              Go to dashboard
+              Start Free Trial
             </Link>
           </div>
         </div>
@@ -109,12 +109,18 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
-          <div className="mt-12 text-center">
+          <div className="mt-12 flex flex-wrap items-center justify-center gap-3">
             <Link
               href="/council"
               className="rounded-xl bg-brand-600 px-6 py-3 text-base font-semibold text-white transition hover:bg-brand-500"
             >
               Ask your first question
+            </Link>
+            <Link
+              href="/pricing"
+              className="rounded-xl border border-white/15 bg-white/5 px-6 py-3 text-base font-semibold text-white transition hover:bg-white/10"
+            >
+              See Pricing
             </Link>
           </div>
         </div>

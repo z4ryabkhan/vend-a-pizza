@@ -51,3 +51,33 @@ create policy "Owner can delete"
   on public.council_sessions
   for delete
   using (auth.uid() = user_id);
+
+-- ---- Subscriptions ----------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE,
+  stripe_customer_id text,
+  stripe_subscription_id text UNIQUE,
+  plan text NOT NULL DEFAULT 'free',
+  status text NOT NULL DEFAULT 'inactive',
+  councils_used_this_month integer DEFAULT 0,
+  current_period_end timestamptz,
+  created_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can read own subscription"
+  ON subscriptions FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE OR REPLACE FUNCTION increment_council_usage(p_user_id uuid)
+RETURNS void AS $$
+BEGIN
+  INSERT INTO subscriptions (user_id, councils_used_this_month)
+  VALUES (p_user_id, 1)
+  ON CONFLICT (user_id)
+  DO UPDATE SET councils_used_this_month = subscriptions.councils_used_this_month + 1;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

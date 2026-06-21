@@ -64,6 +64,8 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   // Run on everything except static assets and the API (the API does its own
-  // auth check and must stay streamable).
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api).*)"],
+  // auth check and must stay streamable). The Stripe webhook uses its own
+  // signature verification, so it must also be excluded.
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|api/stripe/webhook|api).*)"],
 };

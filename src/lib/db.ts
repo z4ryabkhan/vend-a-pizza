@@ -88,3 +88,105 @@ export async function deleteCouncilSession(
     throw new Error(`Failed to delete council session: ${error.message}`);
   }
 }
+
+// ---- Subscription helpers ---------------------------------------------------
+
+export interface Subscription {
+  id: string;
+  user_id: string;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  plan: string;
+  status: string;
+  councils_used_this_month: number;
+  current_period_end: string | null;
+  created_at: string;
+}
+
+/** Fetches a user's subscription row (admin client, bypasses RLS). */
+export async function getSubscription(
+  userId: string
+): Promise<Subscription | null> {
+  const supabase = getAdminSupabase();
+  const { data, error } = await supabase
+    .from("subscriptions")
+    .select("*")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw new Error(`Failed to get subscription: ${error.message}`);
+  return (data as Subscription) ?? null;
+}
+
+/** Upserts a subscription row from a Stripe webhook event. */
+export async function upsertSubscription(params: {
+  userId: string;
+  stripeCustomerId: string;
+  stripeSubscriptionId: string;
+  plan: string;
+  status: string;
+  currentPeriodEnd: Date | null;
+}): Promise<void> {
+  const supabase = getAdminSupabase();
+  const { error } = await supabase.from("subscriptions").upsert(
+    {
+      user_id: params.userId,
+      stripe_customer_id: params.stripeCustomerId,
+      stripe_subscription_id: params.stripeSubscriptionId,
+      plan: params.plan,
+      status: params.status,
+      current_period_end: params.currentPeriodEnd?.toISOString() ?? null,
+    },
+    { onConflict: "user_id" }
+  );
+  if (error) throw new Error(`Failed to upsert subscription: ${error.message}`);
+}
+
+/** Marks a subscription as cancelled by Stripe subscription ID. */
+export async function cancelSubscription(
+  stripeSubscriptionId: string
+): Promise<void> {
+  const supabase = getAdminSupabase();
+  const { error } = await supabase
+    .from("subscriptions")
+    .update({ status: "cancelled" })
+    .eq("stripe_subscription_id", stripeSubscriptionId);
+  if (error)
+    throw new Error(`Failed to cancel subscription: ${error.message}`);
+}
+
+/** Calls the increment_council_usage DB function. */
+export async function incrementCouncilUsage(userId: string): Promise<void> {
+  const supabase = getAdminSupabase();
+  const { error } = await supabase.rpc("increment_council_usage", {
+    p_user_id: userId,
+  });
+  if (error) throw new Error(`Failed to increment usage: ${error.message}`);
+}
+
+/** Returns the monthly council limit for a plan. -1 means unlimited. */
+export function getPlanLimit(plan: string): number {
+  switch (plan) {
+    case "starter":
+      return 5;
+    case "growth":
+      return 25;
+    case "pro":
+      return -1;
+    default:
+      return 1;
+  }
+}
+
+/** Human-readable plan display name. */
+export function getPlanLabel(plan: string): string {
+  switch (plan) {
+    case "starter":
+      return "Starter";
+    case "growth":
+      return "Growth";
+    case "pro":
+      return "Pro";
+    default:
+      return "Free";
+  }
+}

@@ -2,11 +2,18 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import SiteShell from "@/components/SiteShell";
 import DecisionBadge from "@/components/DecisionBadge";
-import { listCouncilSessions } from "@/lib/db";
+import ManageBillingButton from "@/components/ManageBillingButton";
+import {
+  listCouncilSessions,
+  getSubscription,
+  getPlanLimit,
+  getPlanLabel,
+} from "@/lib/db";
 import { isSupabaseConfigured } from "@/lib/supabase";
-import { createServerSupabase } from "@/lib/supabase/server";
+import { createServerSupabase, getCurrentUser } from "@/lib/supabase/server";
 import { councilTypeLabel } from "@/lib/council";
 import type { CouncilSession, FinalDecision } from "@/lib/types";
+import type { Subscription } from "@/lib/db";
 
 export const metadata: Metadata = {
   title: "Dashboard — FounderCouncil AI",
@@ -26,14 +33,26 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
 export default async function DashboardPage() {
   let sessions: CouncilSession[] = [];
   let loadError: string | null = null;
+  let subscription: Subscription | null = null;
 
   if (isSupabaseConfigured()) {
     try {
+      const user = await getCurrentUser();
       sessions = await listCouncilSessions(createServerSupabase(), 100);
+      if (user) {
+        subscription = await getSubscription(user.id).catch(() => null);
+      }
     } catch (err) {
       loadError = err instanceof Error ? err.message : "Failed to load data.";
     }
   }
+
+  const plan = subscription?.plan ?? "free";
+  const planLabel = getPlanLabel(plan);
+  const limit = getPlanLimit(plan);
+  const used = subscription?.councils_used_this_month ?? 0;
+  const isPaidPlan = plan === "growth" || plan === "pro";
+  const limitDisplay = limit === -1 ? "Unlimited" : String(limit);
 
   const total = sessions.length;
   const counts: Record<FinalDecision, number> = {
@@ -62,12 +81,43 @@ export default async function DashboardPage() {
               An overview of your council sessions.
             </p>
           </div>
-          <Link
-            href="/council"
-            className="rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-500"
-          >
-            New council
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            {isSupabaseConfigured() && (
+              <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5">
+                <div>
+                  <p className="text-xs text-slate-500">Plan</p>
+                  <p className="text-sm font-semibold text-white">
+                    {planLabel}
+                  </p>
+                </div>
+                <span className="h-8 w-px bg-white/10" />
+                <div>
+                  <p className="text-xs text-slate-500">This month</p>
+                  <p className="text-sm font-semibold text-white">
+                    {used} / {limitDisplay}
+                  </p>
+                </div>
+              </div>
+            )}
+            {isPaidPlan ? (
+              <ManageBillingButton />
+            ) : (
+              isSupabaseConfigured() && (
+                <Link
+                  href="/pricing"
+                  className="rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-500"
+                >
+                  Upgrade Plan
+                </Link>
+              )
+            )}
+            <Link
+              href="/council"
+              className="rounded-xl border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10"
+            >
+              New council
+            </Link>
+          </div>
         </header>
 
         {!isSupabaseConfigured() ? (

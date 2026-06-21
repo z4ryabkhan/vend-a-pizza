@@ -8,7 +8,12 @@ import { NextResponse } from "next/server";
 import { runSeats, hasUsableResponses } from "@/lib/runCouncil";
 import { runChairman } from "@/lib/chairman";
 import { councilTypeLabel } from "@/lib/council";
-import { insertCouncilSession } from "@/lib/db";
+import {
+  insertCouncilSession,
+  getSubscription,
+  getPlanLimit,
+  incrementCouncilUsage,
+} from "@/lib/db";
 import {
   isServerSupabaseConfigured,
   isSupabaseConfigured,
@@ -46,6 +51,18 @@ export async function POST(request: Request) {
       );
     }
     userId = user.id;
+
+    // Check monthly council usage limit before starting the run.
+    const subscription = await getSubscription(userId).catch(() => null);
+    const plan = subscription?.plan ?? "free";
+    const limit = getPlanLimit(plan);
+    const used = subscription?.councils_used_this_month ?? 0;
+    if (limit !== -1 && used >= limit) {
+      return NextResponse.json(
+        { error: "limit_reached", upgradeUrl: "/pricing" },
+        { status: 403 }
+      );
+    }
   }
 
   const { question, councilType } = input;
@@ -84,6 +101,13 @@ export async function POST(request: Request) {
           request.signal
         );
         send({ type: "verdict", data: verdict });
+
+        // Increment usage counter now that the council has run.
+        if (userId) {
+          await incrementCouncilUsage(userId).catch(() => {
+            // Don't fail the response if usage tracking fails.
+          });
+        }
 
         // Persist when possible; otherwise return an ephemeral result.
         let id = "ephemeral";

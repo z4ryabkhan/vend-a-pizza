@@ -1,5 +1,8 @@
 import Link from "next/link";
 import UserMenu from "./UserMenu";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import { getCurrentUser } from "@/lib/supabase/server";
+import { getSubscription } from "@/lib/db";
 
 const links = [
   { href: "/dashboard", label: "Dashboard" },
@@ -7,7 +10,20 @@ const links = [
   { href: "/history", label: "History" },
 ];
 
-export default function Navbar() {
+export default async function Navbar() {
+  let isFreePlan = false;
+  if (isSupabaseConfigured()) {
+    try {
+      const user = await getCurrentUser();
+      if (user) {
+        const sub = await getSubscription(user.id).catch(() => null);
+        const plan = sub?.plan ?? "free";
+        isFreePlan = plan === "free" || plan === "unknown";
+      }
+    } catch {
+      // Fail silently — nav still renders without highlight
+    }
+  }
   return (
     <header className="sticky top-0 z-30 border-b border-white/10 bg-slate-950/80 backdrop-blur">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
@@ -30,6 +46,16 @@ export default function Navbar() {
               {link.label}
             </Link>
           ))}
+          <Link
+            href="/pricing"
+            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+              isFreePlan
+                ? "border border-brand-500/40 text-brand-300 hover:bg-brand-600/10 hover:text-brand-200"
+                : "text-slate-300 hover:bg-white/5 hover:text-white"
+            }`}
+          >
+            Pricing
+          </Link>
           <Link
             href="/council"
             className="ml-1 hidden rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-brand-500 sm:inline-block"

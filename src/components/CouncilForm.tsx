@@ -31,6 +31,7 @@ export default function CouncilForm() {
   const [councilType, setCouncilType] = useState<CouncilType>("startup");
   const [stage, setStage] = useState<Stage>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [limitReached, setLimitReached] = useState(false);
 
   const [seats, setSeats] = useState<Record<string, SeatResponse>>({});
   const [verdict, setVerdict] = useState<ChairmanVerdict | null>(null);
@@ -43,6 +44,7 @@ export default function CouncilForm() {
   function reset() {
     setStage("idle");
     setError(null);
+    setLimitReached(false);
     setSeats({});
     setVerdict(null);
     setSavedId(null);
@@ -71,9 +73,18 @@ export default function CouncilForm() {
         body: JSON.stringify({ question: trimmed, councilType }),
       });
 
-      if (!res.ok || !res.body) {
+      if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        if (res.status === 403 && data.error === "limit_reached") {
+          setLimitReached(true);
+          setStage("idle");
+          return;
+        }
         throw new Error(data.error || "The council could not be convened.");
+      }
+
+      if (!res.body) {
+        throw new Error("The council could not be convened.");
       }
 
       for await (const event of readNdjsonStream<CouncilStreamEvent>(res)) {
@@ -192,6 +203,19 @@ export default function CouncilForm() {
   // ---- Form view ----
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
+      {limitReached && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-5 py-4">
+          <p className="text-sm text-amber-200">
+            You&apos;ve used all your councils this month. Upgrade to continue.
+          </p>
+          <a
+            href="/pricing"
+            className="shrink-0 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-500"
+          >
+            Upgrade plan
+          </a>
+        </div>
+      )}
       <div>
         <label
           htmlFor="question"
