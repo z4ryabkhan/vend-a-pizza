@@ -16,9 +16,11 @@ import SeatCard from "./SeatCard";
 import SeatSkeleton from "./SeatSkeleton";
 
 const EXAMPLES = [
-  "Should we pivot our B2B SaaS to a self-serve PLG model next quarter?",
-  "Is now the right time to raise a seed round, or should we bootstrap further?",
-  "Should we build our own payments infrastructure or integrate Stripe?",
+  "Should I open a second Waves car wash before this site hits £30k/month revenue?",
+  "Is it time to franchise Paratha Stop Leeds, or should I optimise the single site first?",
+  "Should I build an AI lead gen SaaS or offer it as a done-for-you agency service?",
+  "I've found a business for sale at 3× EBITDA — is this a good acquisition target?",
+  "Should I use my cash reserves to buy a buy-to-let or reinvest in my existing businesses?",
 ];
 
 const SEAT_ORDER: SeatId[] = ["strategist", "risk", "researcher", "builder"];
@@ -28,7 +30,7 @@ type Stage = "idle" | "advisors" | "chairman" | "done";
 export default function CouncilForm() {
   const router = useRouter();
   const [question, setQuestion] = useState("");
-  const [councilType, setCouncilType] = useState<CouncilType>("startup");
+  const [councilType, setCouncilType] = useState<CouncilType>("carwash");
   const [stage, setStage] = useState<Stage>("idle");
   const [error, setError] = useState<string | null>(null);
   const [limitReached, setLimitReached] = useState(false);
@@ -120,28 +122,28 @@ export default function CouncilForm() {
   if (showResults) {
     return (
       <div className="space-y-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <h2 className="text-xl font-semibold text-white">
             {stage === "done" ? "Council results" : "Council in session…"}
           </h2>
-          <div className="flex gap-2">
-            {stage === "done" && persisted && savedId && (
-              <button
-                onClick={() => router.push(`/results/${savedId}`)}
-                className="rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/10"
-              >
-                Open permalink
-              </button>
-            )}
-            {stage === "done" && (
+          {stage === "done" && (
+            <div className="flex gap-2">
+              {persisted && savedId && (
+                <button
+                  onClick={() => router.push(`/results/${savedId}`)}
+                  className="flex-1 rounded-lg border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/10 sm:flex-none sm:py-2"
+                >
+                  Open permalink
+                </button>
+              )}
               <button
                 onClick={reset}
-                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-500"
+                className="flex-1 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-500 sm:flex-none sm:py-2"
               >
                 Ask another
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         <div className="rounded-xl border border-white/10 bg-white/5 p-4">
@@ -227,20 +229,23 @@ export default function CouncilForm() {
           id="question"
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          rows={5}
+          rows={4}
           maxLength={4000}
-          placeholder="e.g. Should we expand into the EU market before reaching profitability?"
-          className="w-full resize-y rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+          placeholder="e.g. Should I open a second Waves car wash site before this one hits £30k/month?"
+          className="w-full resize-y rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-base text-slate-100 placeholder:text-slate-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
         />
-        <div className="mt-2 flex flex-wrap gap-2">
+        {/* Example chips — horizontally scrollable on mobile */}
+        <div className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
           {EXAMPLES.map((ex) => (
             <button
               key={ex}
               type="button"
               onClick={() => setQuestion(ex)}
-              className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-400 transition hover:border-brand-500/40 hover:text-slate-200"
+              className="shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-400 transition hover:border-brand-500/40 hover:text-slate-200 sm:shrink"
             >
-              {ex}
+              <span className="line-clamp-1 max-w-[200px] sm:max-w-none">
+                {ex}
+              </span>
             </button>
           ))}
         </div>
@@ -250,7 +255,8 @@ export default function CouncilForm() {
         <span className="mb-2 block text-sm font-semibold text-slate-200">
           Council type
         </span>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {/* Council type — 2-col grid on mobile, 3-col on desktop */}
+        <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3">
           {COUNCIL_TYPES.map((type) => {
             const active = councilType === type.value;
             return (
@@ -258,16 +264,16 @@ export default function CouncilForm() {
                 key={type.value}
                 type="button"
                 onClick={() => setCouncilType(type.value)}
-                className={`rounded-xl border p-4 text-left transition ${
+                className={`rounded-xl border p-3 text-left transition sm:p-4 ${
                   active
                     ? "border-brand-500 bg-brand-600/15"
                     : "border-white/10 bg-white/5 hover:border-white/20"
                 }`}
               >
-                <span className="block font-semibold text-white">
+                <span className="block text-sm font-semibold text-white sm:text-base">
                   {type.label}
                 </span>
-                <span className="mt-1 block text-sm text-slate-400">
+                <span className="mt-1 hidden text-xs leading-snug text-slate-400 sm:block sm:text-sm">
                   {type.description}
                 </span>
               </button>
@@ -285,7 +291,7 @@ export default function CouncilForm() {
       <button
         type="submit"
         disabled={!question.trim()}
-        className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-6 py-3 text-base font-semibold text-white transition hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 px-6 py-4 text-base font-semibold text-white transition hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:py-3"
       >
         Convene the council
       </button>

@@ -9,10 +9,28 @@
 
 html {
   scroll-behavior: smooth;
+  /* Respect iPhone notch / home indicator */
+  padding-top: env(safe-area-inset-top);
 }
 
 body {
   @apply bg-slate-950 text-slate-100 antialiased;
+  /* Smooth momentum scrolling on iOS */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Safe-area bottom padding utility */
+.pb-safe {
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+}
+
+/* Hide scrollbars on horizontal chip rows but keep scrollable */
+.overflow-x-auto::-webkit-scrollbar {
+  display: none;
+}
+.overflow-x-auto {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* Subtle ambient gradient used on marketing surfaces. */

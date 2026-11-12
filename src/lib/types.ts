@@ -1,11 +1,11 @@
 // Shared domain types for FounderCouncil AI.
 
 export type CouncilType =
-  | "startup"
-  | "growth"
-  | "fundraising"
-  | "product"
-  | "general";
+  | "carwash"
+  | "restaurant"
+  | "digital"
+  | "acquisition"
+  | "property";
 
 export interface CouncilTypeOption {
   value: CouncilType;

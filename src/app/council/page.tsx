@@ -9,12 +9,12 @@ export const metadata: Metadata = {
 export default function CouncilPage() {
   return (
     <SiteShell>
-      <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
-        <header className="mb-10">
-          <h1 className="text-3xl font-bold tracking-tight text-white">
+      <div className="mx-auto max-w-4xl px-4 py-6 pb-safe sm:px-6 sm:py-12">
+        <header className="mb-6 sm:mb-10">
+          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
             Convene your council
           </h1>
-          <p className="mt-2 text-slate-400">
+          <p className="mt-1 text-sm text-slate-400 sm:mt-2 sm:text-base">
             Pose a business question. Four AI advisors answer independently, then
             the Chairman delivers a final verdict.
           </p>

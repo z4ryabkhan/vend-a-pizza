@@ -16,7 +16,7 @@ const STEPS = [
   },
   {
     title: "Four advisors weigh in",
-    body: "GPT, Claude, Gemini, and DeepSeek each answer from a distinct expert seat.",
+    body: "Four free AI models — Llama, DeepSeek, and Gemini — each answer from a distinct expert seat: Strategist, Risk Analyst, Researcher, and Ops Builder.",
   },
   {
     title: "The Chairman decides",
