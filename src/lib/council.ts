@@ -16,13 +16,14 @@ export interface SeatConfig {
 }
 
 // Free-tier models on OpenRouter — zero cost per session.
+// Updated November 2026 to use currently-available free models.
 // Override via environment variables if you want to swap individual seats.
 const DEFAULT_MODELS = {
-  strategist: "meta-llama/llama-3.3-70b-instruct:free",
-  risk: "deepseek/deepseek-r1:free",
-  researcher: "google/gemini-2.0-flash-exp:free",
-  builder: "deepseek/deepseek-chat:free",
-  chairman: "google/gemini-2.0-flash-exp:free",
+  strategist: "google/gemma-4-31b-it:free",
+  risk: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+  researcher: "google/gemma-4-26b-a4b-it:free",
+  builder: "nvidia/nemotron-3.5-lightning:free",
+  chairman: "nvidia/nemotron-3-ultra-550b-a55b:free",
 } as const;
 
 export const CHAIRMAN_MODEL =
