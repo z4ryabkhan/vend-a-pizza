@@ -78,3 +78,4 @@ export async function chatCompletion(
   }
   return content.trim();
 }
+// redeploy: pick up OPENROUTER_API_KEY env var
